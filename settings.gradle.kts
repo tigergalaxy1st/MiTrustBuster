@@ -11,7 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://xposed.repo.maven.io/maven2/") }
+        maven { url = uri("https://api.androxposed.app/nexus/content/repositories/releases/") }
     }
 }
 
