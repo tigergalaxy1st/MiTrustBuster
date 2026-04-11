@@ -41,7 +41,7 @@ jobs:
           echo "Built JAR: $JAR"
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
           cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.aar
-          cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POMFILE'
+          cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POMEOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
   <modelVersion>4.0.0</modelVersion>
@@ -50,7 +50,7 @@ jobs:
   <version>82</version>
   <packaging>aar</packaging>
 </project>
-POMFILE
+POMEOF
           ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
