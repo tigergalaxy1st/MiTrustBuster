@@ -12,17 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout MiTrustBuster
-      uses: actions/checkout@v4
-      with:
-        repository: tigergalaxy1st/MiTrustBuster
-        path: app
-
-    - name: Checkout XposedBridge source (for hidden API stubs)
-      uses: actions/checkout@v4
-      with:
-        repository: rovo89/XposedBridge
-        path: XposedBridge
+    - uses: actions/checkout@v4
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -31,7 +21,13 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Build hiddenapistubs JAR and install to mavenLocal
+    - name: Checkout XposedBridge source
+      uses: actions/checkout@v4
+      with:
+        repository: rovo89/XposedBridge
+        path: XposedBridge
+
+    - name: Build Xposed API JAR from source and install to mavenLocal
       run: |
         cd XposedBridge
         ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
@@ -49,28 +45,25 @@ jobs:
   <packaging>jar</packaging>
 </project>
 POM
-        echo "=== Local Maven repo ===" && ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
+        echo "=== Local Maven repo ==="
+        ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
 
     - name: Build Debug APK
-      run: |
-        cd app
-        ./gradlew assembleDebug --no-daemon
+      run: ./gradlew assembleDebug --no-daemon
 
     - name: Build Release APK
-      run: |
-        cd app
-        ./gradlew assembleRelease --no-daemon
+      run: ./gradlew assembleRelease --no-daemon
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: MiTrustBuster-Debug
-        path: app/app/build/outputs/apk/debug/*.apk
+        path: app/build/outputs/apk/debug/*.apk
         retention-days: 5
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
         name: MiTrustBuster-Release
-        path: app/app/build/outputs/apk/release/*.apk
+        path: app/build/outputs/apk/release/*.apk
         retention-days: 5
