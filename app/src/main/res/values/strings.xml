@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">MiTrustBuster</string>
+    <string name="warning_title">⚠️ Experimental Feature</string>
+    <string name="warning_message">This module hooks into Xiaomi\'s security service (MiTrustService). It disables the MRM (Mi Risk Management) daemon from initializing.\n\nUse at your own risk. Do NOT use this feature in violation of local or national laws.\n\nAfter enabling, please force-stop MiTrustService or reboot your device.</string>
+    <string name="understand">I Understand</string>
+    <string name="pref_category_main">Module Settings</string>
+    <string name="pref_disable_mrm_title">Disable MRM Risk Detection</string>
+    <string name="pref_disable_mrm_summary">Prevent MiTrustService MRM daemon (mrmd) from initializing. Requires LSPosed activation and a device reboot or force-stop of MiTrustService.</string>
+    <string name="pref_category_about">About</string>
+    <string name="pref_scope_title">Scope</string>
+    <string name="pref_scope_summary">com.xiaomi.trustservice</string>
+    <string name="pref_version_title">Version</string>
+    <string name="pref_version_summary">1.0.0</string>
+    <string name="pref_about_title">About</string>
+    <string name="pref_about_summary">A lightweight LSPosed module that disables Xiaomi MiTrustService MRM (Mi Risk Management) risk detection daemon.\n\nUses DexKit dynamic method matching (same strategy as HyperCeiler) to locate the obfuscated MRM init method and block it.\n\nReference: HyperCeiler by ReChronoRain</string>
+    <string name="toast_enabled">MRM disable enabled! Please force-stop MiTrustService or reboot device.</string>
+    <string name="toast_disabled">MRM disable disabled.</string>
+</resources>

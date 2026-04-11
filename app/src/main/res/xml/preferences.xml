@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:title="@string/pref_category_main"
+        app:iconSpaceReserved="false">
+
+        <SwitchPreferenceCompat
+            android:key="disable_mrm"
+            android:title="@string/pref_disable_mrm_title"
+            android:summary="@string/pref_disable_mrm_summary"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/pref_category_about"
+        app:iconSpaceReserved="false">
+
+        <Preference
+            android:key="module_scope"
+            android:title="@string/pref_scope_title"
+            android:summary="@string/pref_scope_summary"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="module_version"
+            android:title="@string/pref_version_title"
+            android:summary="@string/pref_version_summary"
+            app:iconSpaceReserved="false" />
+
+        <Preference
+            android:key="about_info"
+            android:title="@string/pref_about_title"
+            android:summary="@string/pref_about_summary"
+            app:iconSpaceReserved="false" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

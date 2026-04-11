@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">MiTrustBuster</string>
+    <string name="warning_title">⚠️ 实验性功能</string>
+    <string name="warning_message">本模块会 hook 小米安全服务（MiTrustService），禁用 MRM（风险管控）守护进程初始化。\n\n使用需自行承担风险。不得使用此功能进行违反当地及国家法律条文规定的行为。\n\n启用后请强制停止 MiTrustService 或重启设备。</string>
+    <string name="understand">我已了解</string>
+    <string name="pref_category_main">模块设置</string>
+    <string name="pref_disable_mrm_title">禁用 MRM 风险检测</string>
+    <string name="pref_disable_mrm_summary">阻止 MiTrustService MRM 守护进程（mrmd）初始化。需要在 LSPosed 中激活模块，并重启设备或强制停止 MiTrustService。</string>
+    <string name="pref_category_about">关于</string>
+    <string name="pref_scope_title">作用域</string>
+    <string name="pref_scope_summary">com.xiaomi.trustservice</string>
+    <string name="pref_version_title">版本</string>
+    <string name="pref_version_summary">1.0.0</string>
+    <string name="pref_about_title">关于</string>
+    <string name="pref_about_summary">轻量级 LSPosed 模块，用于禁用小米 MiTrustService MRM（风险管控）守护进程。\n\n使用 DexKit 动态方法匹配（与 HyperCeiler 相同策略）定位混淆后的 MRM 初始化方法并拦截。\n\n参考：HyperCeiler by ReChronoRain</string>
+    <string name="toast_enabled">已启用 MRM 禁用！请强制停止 MiTrustService 或重启设备。</string>
+    <string name="toast_disabled">已关闭 MRM 禁用。</string>
+</resources>
