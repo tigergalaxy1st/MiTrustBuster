@@ -21,20 +21,85 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Checkout XposedBridge source
-      uses: actions/checkout@v4
-      with:
-        repository: rovo89/XposedBridge
-        path: XposedBridge
-
-    - name: Build Xposed API JAR from source and install to mavenLocal
+    - name: Download XposedBridge source and build API JAR
       run: |
-        cd XposedBridge
-        ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
-        JAR=$(find hiddenapistubs/build/libs -name "*.jar" | head -1)
-        echo "Built JAR: $JAR"
+        echo "Fetching XposedBridge source file list..."
+        TREE=$(curl -sSL -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/rovo89/XposedBridge/git/trees/art?recursive=1")
+        
+        mkdir -p xposed_src/de/robv/android/xposed/callbacks xposed_src/de/robv/android/xposed/services xposed_src/external
+        
+        echo "$TREE" | python3 -c "
+import json, sys, urllib.request, os
+data = json.load(sys.stdin)
+for item in data['tree']:
+    path = item['path']
+    if path.startswith('app/src/main/java/') and path.endswith('.java'):
+        rel = path[len('app/src/main/java/'):]
+        outdir = 'xposed_src/' + os.path.dirname(rel)
+        outfile = outdir + '/' + os.path.basename(rel)
+        os.makedirs(outdir, exist_ok=True)
+        url = f'https://raw.githubusercontent.com/rovo89/XposedBridge/art/{path}'
+        try:
+            urllib.request.urlretrieve(url, outfile)
+        except:
+            pass
+    elif path.startswith('app/src/main/apacheCommonsLang/') and path.endswith('.java'):
+        rel = path[len('app/src/main/apacheCommonsLang/'):]
+        outdir = 'xposed_src/external/' + os.path.dirname(rel)
+        outfile = outdir + '/' + os.path.basename(rel)
+        os.makedirs(outdir, exist_ok=True)
+        url = f'https://raw.githubusercontent.com/rovo89/XposedBridge/art/{path}'
+        try:
+            urllib.request.urlretrieve(url, outfile)
+        except:
+            pass
+"
+        echo "Java files downloaded:"
+        find xposed_src -name "*.java" | wc -l
+
+    - name: Compile and package Xposed API JAR
+      run: |
+        mkdir -p xposed_api_stubs
+        javac -d xposed_api_stubs \
+          xposed_src/de/robv/android/xposed/IXposedMod.java \
+          xposed_src/de/robv/android/xposed/IXposedHookLoadPackage.java \
+          xposed_src/de/robv/android/xposed/IXposedHookInitPackageResources.java \
+          xposed_src/de/robv/android/xposed/IXposedHookZygoteInit.java \
+          xposed_src/de/robv/android/xposed/IXposedHookCmdInit.java \
+          xposed_src/de/robv/android/xposed/XposedBridge.java \
+          xposed_src/de/robv/android/xposed/XposedHelpers.java \
+          xposed_src/de/robv/android/xposed/XposedInit.java \
+          xposed_src/de/robv/android/xposed/SELinuxHelper.java \
+          xposed_src/de/robv/android/xposed/XSharedPreferences.java \
+          xposed_src/de/robv/android/xposed/XC_MethodHook.java \
+          xposed_src/de/robv/android/xposed/XC_MethodReplacement.java \
+          xposed_src/de/robv/android/xposed/callbacks/XCallback.java \
+          xposed_src/de/robv/android/xposed/callbacks/IXUnhook.java \
+          xposed_src/de/robv/android/xposed/callbacks/XC_LoadPackage.java \
+          xposed_src/de/robv/android/xposed/callbacks/XC_InitPackageResources.java \
+          xposed_src/de/robv/android/xposed/callbacks/XC_LayoutInflated.java \
+          xposed_src/de/robv/android/xposed/callbacks/package-info.java \
+          xposed_src/de/robv/android/xposed/package-info.java \
+          xposed_src/de/robv/android/xposed/services/BaseService.java \
+          xposed_src/de/robv/android/xposed/services/FileResult.java \
+          xposed_src/de/robv/android/xposed/services/ZygoteService.java \
+          xposed_src/de/robv/android/xposed/services/package-info.java \
+          xposed_src/external/org/apache/commons/lang3/CharUtils.java \
+          xposed_src/external/org/apache/commons/lang3/ClassUtils.java \
+          xposed_src/external/org/apache/commons/lang3/ArrayUtils.java \
+          xposed_src/external/org/apache/commons/lang3/CharSequenceUtils.java \
+          xposed_src/external/org/apache/commons/lang3/JavaVersion.java \
+          2>&1 || echo "Compile done"
+        echo "Classes compiled: $(find xposed_api_stubs -name '*.class' | wc -l)"
+
+    - name: Install Xposed JAR to mavenLocal
+      run: |
+        cd xposed_api_stubs
+        jar cf ../api-82.jar de android
+        cd ..
         mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-        cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar
+        cp api-82.jar ~/.m2/repository/de/robv/android/xposed/api/82/
         cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POM'
 <?xml version="1.0" encoding="UTF-8"?>
 <project>
@@ -45,14 +110,14 @@ jobs:
   <packaging>jar</packaging>
 </project>
 POM
-        echo "=== Local Maven repo ==="
+        echo "=== mavenLocal ==="
         ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon
+      run: ./gradlew assembleRelease --no-daemon --stacktrace
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
