@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MiTrustBuster"
 include(":app")
+// Note: Xposed API JAR is built from rovo89/XposedBridge source in CI
