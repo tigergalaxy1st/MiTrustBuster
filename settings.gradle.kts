@@ -11,6 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://xposed.repo.maven.io/maven2/") }
     }
 }
 
