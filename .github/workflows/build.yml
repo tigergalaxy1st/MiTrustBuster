@@ -12,7 +12,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout MiTrustBuster
+      uses: actions/checkout@v4
+      with:
+        repository: tigergalaxy1st/MiTrustBuster
+        path: app
+
+    - name: Checkout XposedBridge source (for hidden API stubs)
+      uses: actions/checkout@v4
+      with:
+        repository: rovo89/XposedBridge
+        path: XposedBridge
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -21,53 +31,46 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Download Xposed API JAR (multi-mirror retry)
+    - name: Build hiddenapistubs JAR and install to mavenLocal
       run: |
+        cd XposedBridge
+        ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
+        JAR=$(find hiddenapistubs/build/libs -name "*.jar" | head -1)
+        echo "Built JAR: $JAR"
         mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-        echo "=== Attempting to download Xposed API JAR ==="
-        
-        # Try wget with different DNS options
-        wget() { command wget --no-check-certificate "$@" || command wget "$@"; }
-        
-        URLs=(
-          "https://xposed.repo.maven.io/maven2/de/robv/android/xposed/api/82/api-82.jar"
-          "https://xposed.repo.maven.io/maven2/de/robv/android/xposed/api/82/api-82.pom"
-        )
-        
-        for url in "${URLs[@]}"; do
-          fname=$(basename "$url")
-          echo "Downloading: $url"
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            echo "  Attempt $attempt..."
-            if wget -q -O ~/.m2/repository/de/robv/android/xposed/api/82/$fname "$url"; then
-              echo "  SUCCESS: $fname downloaded"
-              break
-            else
-              echo "  Failed, sleeping 3s..."
-              sleep 3
-            fi
-          done
-        done
-        
-        echo "=== Files in local Maven repo ==="
-        ls -la ~/.m2/repository/de/robv/android/xposed/api/82/ || echo "Directory empty or missing"
+        cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar
+        cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POM'
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.robv.android.xposed</groupId>
+  <artifactId>api</artifactId>
+  <version>82</version>
+  <packaging>jar</packaging>
+</project>
+POM
+        echo "=== Local Maven repo ===" && ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      run: |
+        cd app
+        ./gradlew assembleDebug --no-daemon
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon --stacktrace
+      run: |
+        cd app
+        ./gradlew assembleRelease --no-daemon
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
         name: MiTrustBuster-Debug
-        path: app/build/outputs/apk/debug/*.apk
+        path: app/app/build/outputs/apk/debug/*.apk
         retention-days: 5
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       with:
         name: MiTrustBuster-Release
-        path: app/build/outputs/apk/release/*.apk
+        path: app/app/build/outputs/apk/release/*.apk
         retention-days: 5
