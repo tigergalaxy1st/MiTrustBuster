@@ -3,85 +3,59 @@ name: Build APK
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
-    - name: Install Android SDK
-      run: |
-        cd "$HOME"
-        curl -fsSL -o cmdline-tools.zip \
-          "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-        unzip -q cmdline-tools.zip
-        mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-        export ANDROID_HOME="$HOME/android-sdk"
-        export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
-        mkdir -p "$ANDROID_HOME"
-        yes | sdkmanager --licenses > /dev/null 2>&1 || true
-        sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" \
-          --sdk_root="$ANDROID_HOME"
-        echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-        echo "SDK installed: $(ls $ANDROID_HOME/platforms)"
-
-    - name: Checkout XposedBridge
-      uses: actions/checkout@v4
-      with:
-        repository: rovo89/XposedBridge
-        path: XposedBridge
-
-    - name: Build Xposed hiddenapistubs AAR
-      run: |
-        export ANDROID_HOME="$HOME/android-sdk"
-        export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
-        cd XposedBridge
-        ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
-        JAR=$(find hiddenapistubs/build/libs -name "*.aar" 2>/dev/null | head -1)
-        echo "Built: $JAR"
-        mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-        cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.aar
-        cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POM'
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Install Android SDK
+        run: |
+          cd "$HOME"
+          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+          unzip -q cmdline-tools.zip
+          mkdir -p cmdline-tools/latest
+          sh -c 'cd cmdline-tools && mv * ../latest/ 2>/dev/null; cd ..'
+          mkdir -p android-sdk
+          export ANDROID_HOME="$HOME/android-sdk"
+          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          repository: rovo89/XposedBridge
+          path: XposedBridge
+      - name: Build Xposed hiddenapistubs
+        run: |
+          export ANDROID_HOME="$HOME/android-sdk"
+          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
+          cd XposedBridge && ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
+          JAR=$(find hiddenapistubs/build/libs -name "*.aar" | head -1)
+          echo "Built: $JAR"
+          mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
+          cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.aar
+          cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POM'
 <?xml version="1.0" encoding="UTF-8"?>
-<project>
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>de.robv.android.xposed</groupId>
-  <artifactId>api</artifactId>
-  <version>82</version>
-  <packaging>aar</packaging>
-</project>
+<project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>aar</packaging></project>
 POM
-        ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
-
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon
-
-    - name: Build Release APK
-      run: ./gradlew assembleRelease --no-daemon
-
-    - name: Upload Debug APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MiTrustBuster-Debug
-        path: app/build/outputs/apk/debug/*.apk
-        retention-days: 5
-
-    - name: Upload Release APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MiTrustBuster-Release
-        path: app/build/outputs/apk/release/*.apk
-        retention-days: 5
+          ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiTrustBuster-Debug
+          path: app/build/outputs/apk/debug/*.apk
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiTrustBuster-Release
+          path: app/build/outputs/apk/release/*.apk
