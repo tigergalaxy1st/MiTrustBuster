@@ -20,7 +20,7 @@ jobs:
           curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
-          sh -c 'cd cmdline-tools && mv * ../latest/ 2>/dev/null; cd ..'
+          sh -c 'mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null; true'
           mkdir -p android-sdk
           export ANDROID_HOME="$HOME/android-sdk"
           export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
@@ -35,15 +35,22 @@ jobs:
         run: |
           export ANDROID_HOME="$HOME/android-sdk"
           export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
-          cd XposedBridge && ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
+          cd XposedBridge
+          ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
           JAR=$(find hiddenapistubs/build/libs -name "*.aar" | head -1)
-          echo "Built: $JAR"
+          echo "Built JAR: $JAR"
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
           cp "$JAR" ~/.m2/repository/de/robv/android/xposed/api/82/api-82.aar
-          cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POM'
+          cat > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom << 'POMFILE'
 <?xml version="1.0" encoding="UTF-8"?>
-<project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>aar</packaging></project>
-POM
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>de.robv.android.xposed</groupId>
+  <artifactId>api</artifactId>
+  <version>82</version>
+  <packaging>aar</packaging>
+</project>
+POMFILE
           ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
