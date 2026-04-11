@@ -11,7 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://maven.aliyun.com/repository/xposed") }
+        maven { url = uri("https://api.github.com/repos/rovo89/XposedBridge/releases//download/82/") }
     }
 }
 
