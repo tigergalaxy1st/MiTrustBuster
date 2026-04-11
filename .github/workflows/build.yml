@@ -2,9 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,40 +14,42 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download Xposed API JAR
-      run: |
-        mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-        curl -fsSL "https://search.maven.org/solrsearch/select?q=g:de.robv.android.xposed+AND+a:api&rows=5&wt=json" | python3 -c "
-import json,sys,urllib.request
-data = json.load(sys.stdin)
-for doc in data['response']['docs']:
-    print(doc['latestVersion'], doc.get('a',''), doc.get('p',''))
-" || echo "Maven search unavailable"
-        # Try direct download from Maven Central
-        curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar \
-          "https://repo1.maven.org/maven2/de/robv/android/xposed/api/82/api-82.jar" || \
-        curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar \
-          "https://dl.google.com/dl/android/maven2/de/robv/android/xposed/api/82/api-82.jar" || \
-        curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar \
-          "https://search.maven.org/remotecontent?filepath=de/robv/android/xposed/api/82/api-82.jar"
-        curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom \
-          "https://repo1.maven.org/maven2/de/robv/android/xposed/api/82/api-82.pom"
-        ls -la ~/.m2/repository/de/robv/android/xposed/api/82/
-
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+    - name: Download Xposed API JAR (with retry)
+      run: |
+        mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
+        for i in 1 2 3 4 5; do
+          echo "Attempt $i..."
+          if curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar \
+            "https://xposed.repo.maven.io/maven2/de/robv/android/xposed/api/82/api-82.jar"; then
+            echo "JAR downloaded successfully"
+            break
+          fi
+          echo "Failed, retrying in 5s..."
+          sleep 5
+        done
+        for i in 1 2 3 4 5; do
+          echo "Attempt $i..."
+          if curl -fsSL -o ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom \
+            "https://xposed.repo.maven.io/maven2/de/robv/android/xposed/api/82/api-82.pom"; then
+            echo "POM downloaded successfully"
+            break
+          fi
+          echo "Failed, retrying in 5s..."
+          sleep 5
+        done
+        ls -la ~/.m2/repository/de/robv/android/xposed/api/82/
 
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --stacktrace
+      run: ./gradlew assembleDebug
 
     - name: Build Release APK
-      run: ./gradlew assembleRelease --stacktrace
+      run: ./gradlew assembleRelease
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
