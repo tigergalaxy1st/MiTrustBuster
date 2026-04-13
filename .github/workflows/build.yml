@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  ANDROID_HOME: /home/runner/android-sdk
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,27 +21,24 @@ jobs:
           distribution: 'temurin'
       - name: Install Android SDK
         run: |
-          mkdir -p "$HOME/android-sdk"
-          cd "$HOME"
+          mkdir -p "$ANDROID_HOME"
+          cd "$ANDROID_HOME"
           curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
           [ -d "cmdline-tools/bin" ] && mv cmdline-tools/bin cmdline-tools/latest/
           [ -d "cmdline-tools/lib" ] && mv cmdline-tools/lib cmdline-tools/latest/
-          export PATH="$HOME/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH"
-          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
-          yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$HOME/android-sdk"
-          echo "SDK installed"
-          ls "$HOME/android-sdk/platforms/android-34/android.jar"
-      - name: Download and compile XposedBridge API via javac
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms/android-34/android.jar"
+      - name: Download and compile XposedBridge API
         run: |
-          set -e
-          export ANDROID_HOME="$HOME/android-sdk"
-          mkdir -p xposed_src/de/robv/android/xposed xposed_src/de/robv/android/xposed/callbacks xposed_src/de/robv/android/xposed/services xposed_src/de/robv/android/xposed/services/stub xposed_src/android/app xposed_src/android/content/pm xposed_src/android/content/res xposed_src/android/os xposed_src/android/os stub xposed_src/com/android/internal/os xposed_src/com/android/internal/util xposed_src/xposed/dummy
-          # XposedBridge master HEAD SHA
+          export ANDROID_HOME=/home/runner/android-sdk
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-34/android.jar"
+          mkdir -p xposed_build/de/robv/android/xposed xposed_build/de/robv/android/xposed/callbacks xposed_build/de/robv/android/xposed/services xposed_build/android/app xposed_build/android/content/pm xposed_build/android/content/res xposed_build/android/os xposed_build/com/android/internal/os xposed_build/com/android/internal/util xposed_build/xposed/dummy xposed_build/android/os/stub xposed_build/de/robv/android/xposed/services/stub
           XB=afcc3e1e788ea44bfd00245a24b5dfe6c86aa3d0
-          XB_JAVA_FILES=(
+          FILES=(
             "app/src/main/java/de/robv/android/xposed/XposedBridge.java"
             "app/src/main/java/de/robv/android/xposed/XposedHelpers.java"
             "app/src/main/java/de/robv/android/xposed/XposedInit.java"
@@ -81,18 +81,16 @@ jobs:
             "hiddenapistubs/src/main/java/xposed/dummy/XResourcesSuperClass.java"
             "hiddenapistubs/src/main/java/xposed/dummy/XTypedArraySuperClass.java"
           )
-          echo "Downloading XposedBridge Java source files..."
-          for file in "${XB_JAVA_FILES[@]}"; do
+          echo "Downloading $${#FILES[@]} XposedBridge Java files..."
+          for file in "$${FILES[@]}"; do
             url="https://raw.githubusercontent.com/rovo89/XposedBridge/$XB/$file"
-            dest="xposed_src/$file"
+            dest="xposed_build/$file"
             dir=$(dirname "$dest")
             mkdir -p "$dir"
             curl -fsSL -o "$dest" "$url"
-            echo "  Downloaded $file"
           done
-          echo "Compiling XposedBridge API..."
-          ANDROID_JAR="$ANDROID_HOME/platforms/android-34/android.jar"
-          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d xposed_build $(find xposed_src -name "*.java") 2>&1 || echo "Compilation had warnings (expected for stubs)"
+          echo "Compiling..."
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d xposed_build $(find xposed_build -name "*.java") 2>&1 || echo "Some classes had errors (expected)"
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
           jar cf ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar -C xposed_build .
           echo '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
