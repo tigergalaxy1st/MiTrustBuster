@@ -35,19 +35,9 @@ jobs:
           git clone --depth 1 https://github.com/rovo89/XposedBridge.git XposedBridge
           cd XposedBridge
           # 鏇挎崲涓?Gradle 8.5 鐨?wrapper.jar (鏃?jar 涓嶆敮鎸?Java 17)
-          WRAPPER_JAR_URL="https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
-          curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "$WRAPPER_JAR_URL"
-          # 鏇挎崲 gradle-wrapper.properties
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-distributionBase=GRADLE_USER_HOME
-distributionPath=wrapper/dists
-distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-networkTimeout=10000
-zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists
-EOF
+          curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
           echo "Wrapper upgraded to Gradle 8.5"
-          ls -la gradle/wrapper/
           ./gradlew --version
       - name: Build XposedBridge hiddenapistubs
         run: |
@@ -61,7 +51,7 @@ EOF
           unzip -o "$AAR" classes.jar -d /tmp/xposed
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
           cp /tmp/xposed/classes.jar ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar
-          echo '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
+          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
           ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
