@@ -21,41 +21,38 @@ jobs:
           cd "$HOME"
           curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdline-tools.zip
-          # cmdline-tools 瑙ｅ帇鍚庣洰褰曠粨鏋? cmdline-tools/bin/, cmdline-tools/lib/
-          # 闇€瑕佺Щ鍔ㄥ埌 cmdline-tools/latest/bin/, cmdline-tools/latest/lib/
           mkdir -p cmdline-tools/latest
-          # 妫€鏌ュ疄闄呯粨鏋?          ls -la cmdline-tools/
-          # 绉诲姩鏂囦欢 - cmdline-tools 瀹為檯鍦?cmdline-tools 瀛愮洰褰曞唴
-          if [ -d "cmdline-tools/cmdline-tools" ]; then
-            mv cmdline-tools/cmdline-tools/* cmdline-tools/latest/
-          else
-            mv cmdline-tools/bin cmdline-tools/latest/ 2>/dev/null || true
-            mv cmdline-tools/lib cmdline-tools/latest/ 2>/dev/null || true
-          fi
-          ls -la cmdline-tools/latest/
-          ls -la cmdline-tools/latest/bin/ 2>/dev/null || echo "No bin dir!"
-          # 璁剧疆鐜鍙橀噺
+          # 绉诲姩 bin/ 鍜?lib/ 鍒?latest/
+          if [ -d "cmdline-tools/bin" ]; then mv cmdline-tools/bin cmdline-tools/latest/; fi
+          if [ -d "cmdline-tools/lib" ]; then mv cmdline-tools/lib cmdline-tools/latest/; fi
+          if [ -d "cmdline-tools/latest/bin" ]; then ls cmdline-tools/latest/bin/; fi
+          # 璁剧疆璺緞
           export ANDROID_HOME="$HOME/android-sdk"
-          export PATH="$PATH:$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+          export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           mkdir -p "$ANDROID_HOME"
-          # 娴嬭瘯 sdkmanager
-          cmdline-tools/latest/bin/sdkmanager --version
-          yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "PATH=$PATH" >> "$GITHUB_ENV"
-      - name: Clone XposedBridge
-        run: git clone --depth 1 https://github.com/rovo89/XposedBridge.git XposedBridge
-      - name: Build XposedBridge hiddenapistubs
+          # 鎺ュ彈鍗忚
+          yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          # 瀹夎 SDK
+          $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
+      - name: Clone and upgrade XposedBridge
+        run: |
+          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XposedBridge
+          cd XposedBridge
+          # 鍗囩骇 Gradle wrapper 鍒?8.5 浠ユ敮鎸?Java 17
+          ./gradlew wrapper --gradle-version 8.5 --no-daemon
+      - name: Build XposedBridge and install to mavenLocal
         run: |
           export ANDROID_HOME="$HOME/android-sdk"
-          export PATH="$PATH:$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+          export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           cd XposedBridge
           ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
+          # 浠?AAR 涓彁鍙?classes.jar
           AAR=$(find hiddenapistubs/build -name "*.aar" -type f | head -1)
           echo "Built AAR: $AAR"
           mkdir -p /tmp/xposed
           unzip -o "$AAR" classes.jar -d /tmp/xposed
+          # 瀹夎鍒?mavenLocal
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
           cp /tmp/xposed/classes.jar ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar
           echo '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
@@ -65,11 +62,13 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
       - name: Upload Debug APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: MiTrustBuster-Debug
           path: app/build/outputs/apk/debug/*.apk
       - name: Upload Release APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: MiTrustBuster-Release
