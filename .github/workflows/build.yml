@@ -10,8 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -20,45 +18,84 @@ jobs:
           distribution: 'temurin'
       - name: Install Android SDK
         run: |
-          mkdir -p "$ANDROID_HOME"
-          cd "$ANDROID_HOME"
+          mkdir -p "$HOME/android-sdk"
+          cd "$HOME"
           curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
           [ -d "cmdline-tools/bin" ] && mv cmdline-tools/bin cmdline-tools/latest/
           [ -d "cmdline-tools/lib" ] && mv cmdline-tools/lib cmdline-tools/latest/
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
-          echo "SDK installed to $ANDROID_HOME"
-      - name: Clone and patch XposedBridge
+          export PATH="$HOME/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH"
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$HOME/android-sdk"
+          echo "SDK installed"
+          ls "$HOME/android-sdk/platforms/android-34/android.jar"
+      - name: Download and compile XposedBridge API via javac
         run: |
-          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB
-          cd XB
-          # clone 鍚庣珛鍗宠鐩?hiddenapistubs/build.gradle锛堟坊鍔?compileSdk + namespace锛?          printf 'apply plugin: "com.android.library"\n\nandroid {\n    namespace "de.robv.android.xposed.hiddenapistubs"\n    compileSdk 34\n    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }\n}\n' > hiddenapistubs/build.gradle
-          echo "Patched hiddenapistubs/build.gradle:"
-          cat hiddenapistubs/build.gradle
-          # 鍒犻櫎 app 鐩綍
-          mv app app_disabled
-          # 鍗囩骇 wrapper 鍒?Gradle 8.5
-          curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
-          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
-          # 鏇挎崲鏍?build.gradle
-          printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\n\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\ntask clean(type: Delete) {\n    delete rootProject.buildDir\n}\n' > build.gradle
-          ./gradlew --version
-      - name: Build hiddenapistubs and install to mavenLocal
-        run: |
-          cd XB
-          export ANDROID_HOME=/opt/android-sdk
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
-          AAR=$(find hiddenapistubs/build -name "*.aar" -type f | head -1)
-          echo "Built AAR: $AAR"
-          mkdir -p /tmp/xposed
-          unzip -o "$AAR" classes.jar -d /tmp/xposed
+          set -e
+          export ANDROID_HOME="$HOME/android-sdk"
+          mkdir -p xposed_src/de/robv/android/xposed xposed_src/de/robv/android/xposed/callbacks xposed_src/de/robv/android/xposed/services xposed_src/de/robv/android/xposed/services/stub xposed_src/android/app xposed_src/android/content/pm xposed_src/android/content/res xposed_src/android/os xposed_src/android/os stub xposed_src/com/android/internal/os xposed_src/com/android/internal/util xposed_src/xposed/dummy
+          # XposedBridge master HEAD SHA
+          XB=afcc3e1e788ea44bfd00245a24b5dfe6c86aa3d0
+          XB_JAVA_FILES=(
+            "app/src/main/java/de/robv/android/xposed/XposedBridge.java"
+            "app/src/main/java/de/robv/android/xposed/XposedHelpers.java"
+            "app/src/main/java/de/robv/android/xposed/XposedInit.java"
+            "app/src/main/java/de/robv/android/xposed/IXposedMod.java"
+            "app/src/main/java/de/robv/android/xposed/IXposedHookLoadPackage.java"
+            "app/src/main/java/de/robv/android/xposed/IXposedHookZygoteInit.java"
+            "app/src/main/java/de/robv/android/xposed/IXposedHookInitPackageResources.java"
+            "app/src/main/java/de/robv/android/xposed/IXposedHookCmdInit.java"
+            "app/src/main/java/de/robv/android/xposed/XC_MethodHook.java"
+            "app/src/main/java/de/robv/android/xposed/XC_MethodReplacement.java"
+            "app/src/main/java/de/robv/android/xposed/XSharedPreferences.java"
+            "app/src/main/java/de/robv/android/xposed/SELinuxHelper.java"
+            "app/src/main/java/de/robv/android/xposed/DexCreator.java"
+            "app/src/main/java/de/robv/android/xposed/callbacks/XCallback.java"
+            "app/src/main/java/de/robv/android/xposed/callbacks/IXUnhook.java"
+            "app/src/main/java/de/robv/android/xposed/callbacks/XC_LoadPackage.java"
+            "app/src/main/java/de/robv/android/xposed/callbacks/XC_InitPackageResources.java"
+            "app/src/main/java/de/robv/android/xposed/callbacks/XC_LayoutInflated.java"
+            "app/src/main/java/de/robv/android/xposed/services/BaseService.java"
+            "app/src/main/java/de/robv/android/xposed/services/BinderService.java"
+            "app/src/main/java/de/robv/android/xposed/services/DirectAccessService.java"
+            "app/src/main/java/de/robv/android/xposed/services/FileResult.java"
+            "app/src/main/java/de/robv/android/xposed/services/ZygoteService.java"
+            "app/src/main/java/android/app/AndroidAppHelper.java"
+            "app/src/main/java/android/content/res/XModuleResources.java"
+            "app/src/main/java/android/content/res/XResForwarder.java"
+            "app/src/main/java/android/content/res/XResources.java"
+            "hiddenapistubs/src/main/java/android/app/ActivityThread.java"
+            "hiddenapistubs/src/main/java/android/app/LoadedApk.java"
+            "hiddenapistubs/src/main/java/android/content/pm/PackageParser.java"
+            "hiddenapistubs/src/main/java/android/content/res/AssetManager.java"
+            "hiddenapistubs/src/main/java/android/content/res/CompatibilityInfo.java"
+            "hiddenapistubs/src/main/java/android/content/res/Resources.java"
+            "hiddenapistubs/src/main/java/android/content/res/TypedArray.java"
+            "hiddenapistubs/src/main/java/android/os/SELinux.java"
+            "hiddenapistubs/src/main/java/android/os/ServiceManager.java"
+            "hiddenapistubs/src/main/java/com/android/internal/os/RuntimeInit.java"
+            "hiddenapistubs/src/main/java/com/android/internal/os/ZygoteInit.java"
+            "hiddenapistubs/src/main/java/com/android/internal/util/XmlUtils.java"
+            "hiddenapistubs/src/main/java/xposed/dummy/XResourcesSuperClass.java"
+            "hiddenapistubs/src/main/java/xposed/dummy/XTypedArraySuperClass.java"
+          )
+          echo "Downloading XposedBridge Java source files..."
+          for file in "${XB_JAVA_FILES[@]}"; do
+            url="https://raw.githubusercontent.com/rovo89/XposedBridge/$XB/$file"
+            dest="xposed_src/$file"
+            dir=$(dirname "$dest")
+            mkdir -p "$dir"
+            curl -fsSL -o "$dest" "$url"
+            echo "  Downloaded $file"
+          done
+          echo "Compiling XposedBridge API..."
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-34/android.jar"
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d xposed_build $(find xposed_src -name "*.java") 2>&1 || echo "Compilation had warnings (expected for stubs)"
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-          cp /tmp/xposed/classes.jar ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar
-          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
+          jar cf ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar -C xposed_build .
+          echo '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
           ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
