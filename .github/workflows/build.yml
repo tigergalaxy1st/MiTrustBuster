@@ -30,23 +30,19 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
-      - name: Clone XposedBridge (skip app to avoid SDK conflict)
+      - name: Clone XposedBridge into XB subdir
         run: |
-          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XposedBridge
-          cd XposedBridge
-          # 绉婚櫎 app/ 鐩綍锛氶伩鍏?AGP 8.x 妫€娴嬪埌 SDK 璺緞鍐茬獊
-          # 锛堝湪 git clone 鍚庣珛鍗崇Щ鍔ㄨ蛋锛?          mv app app_backup
-          # 鍗囩骇 wrapper 鍒?Gradle 8.5
+          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB
+          cd XB
           curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
-          # 鏇挎崲 build.gradle锛氱敤 google() + mavenCentral() 鏇夸唬 jcenter()
           printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\n\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\ntask clean(type: Delete) {\n    delete rootProject.buildDir\n}\n' > build.gradle
           ./gradlew --version
       - name: Build hiddenapistubs and install to mavenLocal
         run: |
           export ANDROID_HOME="$HOME/android-sdk"
           export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          cd XposedBridge
+          cd XB
           ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
           AAR=$(find hiddenapistubs/build -name "*.aar" -type f | head -1)
           echo "Built AAR: $AAR"
