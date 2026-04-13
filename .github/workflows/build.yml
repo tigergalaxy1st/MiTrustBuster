@@ -2,7 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -23,7 +25,7 @@ jobs:
           sh -c 'mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null; true'
           mkdir -p android-sdk
           export ANDROID_HOME="$HOME/android-sdk"
-          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
+          export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
