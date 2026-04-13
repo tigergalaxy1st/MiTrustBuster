@@ -31,14 +31,18 @@ jobs:
           yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
           echo "SDK installed to $ANDROID_HOME"
-          ls -la "$ANDROID_HOME"
       - name: Clone and prepare XposedBridge
         run: |
           git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB
           cd XB
           mv app app_disabled
+          # 鏇挎崲 hiddenapistubs/build.gradle锛堟坊鍔?compileSdk + namespace for AGP 8.x锛?          printf 'apply plugin: "com.android.library"\n\nandroid {\n    namespace "de.robv.android.xposed.hiddenapistubs"\n    compileSdk 34\n    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }\n    libraryVariants.all { variant -> variant.outputs.each { output -> output.outputFileName = "hiddenapistubs.aar" } }\n}\n' > hiddenapistubs/build.gradle
+          echo "Patched hiddenapistubs/build.gradle"
+          cat hiddenapistubs/build.gradle
+          # 鍗囩骇 wrapper 鍒?Gradle 8.5
           curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
+          # 鏇挎崲鏍?build.gradle
           printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\n\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\ntask clean(type: Delete) {\n    delete rootProject.buildDir\n}\n' > build.gradle
           ./gradlew --version
       - name: Build hiddenapistubs and install to mavenLocal
