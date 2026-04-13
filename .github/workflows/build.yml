@@ -16,6 +16,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Test connectivity
+        run: |
+          echo "=== Test xposed.repo.maven.io ==="
+          curl -v --max-time 10 https://xposed.repo.maven.io 2>&1 | head -20
+          echo "=== Test Maven Central ==="
+          curl -sI --max-time 5 https://repo1.maven.org/maven2/ | head -3
       - name: Install Android SDK
         run: |
           mkdir -p "$HOME/android-sdk"
@@ -30,16 +36,17 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
-      - name: Clone XposedBridge and fix Gradle wrapper
+      - name: Clone XposedBridge and patch build
         run: |
           git clone --depth 1 https://github.com/rovo89/XposedBridge.git XposedBridge
           cd XposedBridge
-          # 鏇挎崲涓?Gradle 8.5 鐨?wrapper.jar (鏃?jar 涓嶆敮鎸?Java 17)
+          # 鍗囩骇 wrapper
           curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
-          echo "Wrapper upgraded to Gradle 8.5"
+          # 鏇挎崲 build.gradle锛歡oogle() + AGP 8.1.0
+          printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\n\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\ntask clean(type: Delete) {\n    delete rootProject.buildDir\n}\n' > build.gradle
           ./gradlew --version
-      - name: Build XposedBridge hiddenapistubs
+      - name: Build XposedBridge and install to mavenLocal
         run: |
           export ANDROID_HOME="$HOME/android-sdk"
           export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
