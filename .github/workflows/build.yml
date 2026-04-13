@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /opt/android-sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -18,34 +20,32 @@ jobs:
           distribution: 'temurin'
       - name: Install Android SDK
         run: |
-          mkdir -p "$HOME/android-sdk"
-          export ANDROID_HOME="$HOME/android-sdk"
-          cd "$HOME"
+          mkdir -p "$ANDROID_HOME"
+          cd "$ANDROID_HOME"
           curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
           [ -d "cmdline-tools/bin" ] && mv cmdline-tools/bin cmdline-tools/latest/
           [ -d "cmdline-tools/lib" ] && mv cmdline-tools/lib cmdline-tools/latest/
-          export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
-          yes | $HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
-      - name: Prepare XposedBridge
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          yes | cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" --sdk_root="$ANDROID_HOME"
+          echo "SDK installed to $ANDROID_HOME"
+          ls -la "$ANDROID_HOME"
+      - name: Clone and prepare XposedBridge
         run: |
           git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB
           cd XB
-          # 閲嶅懡鍚?app 鐩綍閬垮厤琚?AGP 8.x 璇勪及锛堜細妫€娴?SDK 璺緞鍐茬獊锛?          mv app app_disabled
-          # 鍗囩骇 wrapper 鍒?Gradle 8.5
+          mv app app_disabled
           curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
           printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
-          # 鏇挎崲 build.gradle锛氱敤 google() + AGP 8.1.0 鏇夸唬 jcenter()
           printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\n\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n\ntask clean(type: Delete) {\n    delete rootProject.buildDir\n}\n' > build.gradle
           ./gradlew --version
       - name: Build hiddenapistubs and install to mavenLocal
         run: |
-          export ANDROID_HOME="$HOME/android-sdk"
-          export PATH="$HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           cd XB
+          export ANDROID_HOME=/opt/android-sdk
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q
           AAR=$(find hiddenapistubs/build -name "*.aar" -type f | head -1)
           echo "Built AAR: $AAR"
