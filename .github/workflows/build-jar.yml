@@ -1,0 +1,80 @@
+name: Build XposedBridge JAR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          fetch-depth: 1
+      - name: Download and compile XposedBridge source files
+        run: |
+          mkdir -p /tmp/xposed_src/de/robv/android/xposed/callbacks
+          mkdir -p /tmp/xposed_src/de/robv/android/xposed/services
+          
+          # Download all pure Java API source files from v82
+          declare -A files=(
+            ["de/robv/android/xposed/IXposedHookCmdInit.java"]="app/src/main/java/de/robv/android/xposed/IXposedHookCmdInit.java"
+            ["de/robv/android/xposed/IXposedHookInitPackageResources.java"]="app/src/main/java/de/robv/android/xposed/IXposedHookInitPackageResources.java"
+            ["de/robv/android/xposed/IXposedHookLoadPackage.java"]="app/src/main/java/de/robv/android/xposed/IXposedHookLoadPackage.java"
+            ["de/robv/android/xposed/IXposedHookZygoteInit.java"]="app/src/main/java/de/robv/android/xposed/IXposedHookZygoteInit.java"
+            ["de/robv/android/xposed/IXposedMod.java"]="app/src/main/java/de/robv/android/xposed/IXposedMod.java"
+            ["de/robv/android/xposed/SELinuxHelper.java"]="app/src/main/java/de/robv/android/xposed/SELinuxHelper.java"
+            ["de/robv/android/xposed/XC_MethodHook.java"]="app/src/main/java/de/robv/android/xposed/XC_MethodHook.java"
+            ["de/robv/android/xposed/XC_MethodReplacement.java"]="app/src/main/java/de/robv/android/xposed/XC_MethodReplacement.java"
+            ["de/robv/android/xposed/XSharedPreferences.java"]="app/src/main/java/de/robv/android/xposed/XSharedPreferences.java"
+            ["de/robv/android/xposed/XposedBridge.java"]="app/src/main/java/de/robv/android/xposed/XposedBridge.java"
+            ["de/robv/android/xposed/XposedHelpers.java"]="app/src/main/java/de/robv/android/xposed/XposedHelpers.java"
+            ["de/robv/android/xposed/callbacks/IXUnhook.java"]="app/src/main/java/de/robv/android/xposed/callbacks/IXUnhook.java"
+            ["de/robv/android/xposed/callbacks/XC_InitPackageResources.java"]="app/src/main/java/de/robv/android/xposed/callbacks/XC_InitPackageResources.java"
+            ["de/robv/android/xposed/callbacks/XC_LayoutInflated.java"]="app/src/main/java/de/robv/android/xposed/callbacks/XC_LayoutInflated.java"
+            ["de/robv/android/xposed/callbacks/XC_LoadPackage.java"]="app/src/main/java/de/robv/android/xposed/callbacks/XC_LoadPackage.java"
+            ["de/robv/android/xposed/callbacks/XCallback.java"]="app/src/main/java/de/robv/android/xposed/callbacks/XCallback.java"
+            ["de/robv/android/xposed/callbacks/package-info.java"]="app/src/main/java/de/robv/android/xposed/callbacks/package-info.java"
+            ["de/robv/android/xposed/package-info.java"]="app/src/main/java/de/robv/android/xposed/package-info.java"
+            ["de/robv/android/xposed/services/BaseService.java"]="app/src/main/java/de/robv/android/xposed/services/BaseService.java"
+            ["de/robv/android/xposed/services/BinderService.java"]="app/src/main/java/de/robv/android/xposed/services/BinderService.java"
+            ["de/robv/android/xposed/services/DirectAccessService.java"]="app/src/main/java/de/robv/android/xposed/services/DirectAccessService.java"
+            ["de/robv/android/xposed/services/FileResult.java"]="app/src/main/java/de/robv/android/xposed/services/FileResult.java"
+            ["de/robv/android/xposed/services/ZygoteService.java"]="app/src/main/java/de/robv/android/xposed/services/ZygoteService.java"
+            ["de/robv/android/xposed/services/package-info.java"]="app/src/main/java/de/robv/android/xposed/services/package-info.java"
+          )
+          
+          for local in "${!files[@]}"; do
+            ghpath="${files[$local]}"
+            url="https://raw.githubusercontent.com/rovo89/XposedBridge/v82/$ghpath"
+            mkdir -p "/tmp/xposed_src/$(dirname $local)"
+            curl -fsSL -o "/tmp/xposed_src/$local" "$url"
+            echo "Downloaded: $local"
+          done
+          
+          echo "Downloaded all files. Compiling..."
+          javac -d /tmp/xposed_jar $(find /tmp/xposed_src -name "*.java") && echo "Compilation SUCCESS"
+          ls -lh /tmp/xposed_jar/de/robv/android/xposed/
+          
+      - name: Commit JAR to repository
+        run: |
+          mkdir -p repo/libs
+          cp /tmp/xposed_jar/de/robv/android/xposed/*.class repo/libs/ 2>/dev/null || true
+          cp -r /tmp/xposed_jar/* repo/libs/
+          
+          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > repo/libs/api-82.pom
+          
+          cd repo
+          git config user.email "ci@github-actions.local"
+          git config user.name "GitHub Actions CI"
+          git add libs/
+          if git diff --staged --quiet; then
+            echo "No changes - JAR is up to date"
+          else
+            git commit -m "chore: add XposedBridge API JAR v82"
+            git push
+            echo "JAR committed successfully"
+          fi
