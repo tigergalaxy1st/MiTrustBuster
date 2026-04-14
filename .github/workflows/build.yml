@@ -3,12 +3,40 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - '!libs/**'
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build:
+  build-api-jar:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: steps.check.outputs.changed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - id: check
+        run: |
+          mkdir -p repo/libs
+          curl -fsSL -o repo/libs/api-82.jar "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/build/libs/api-82.jar" 2>/dev/null || echo "JAR_NOT_FOUND" > /tmp/status
+          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > repo/libs/api-82.pom
+          echo "changed=true" >> `$GITHUB_OUTPUT
+      - uses: peaceiris/actions-gh-commit@v4
+        if: steps.check.outputs.changed == 'true'
+        with:
+          github_token: `${{ secrets.GITHUB_TOKEN }}
+          commit_message: "chore: update XposedBridge API JAR v82"
+          files: |
+            libs/api-82.jar
+            libs/api-82.pom
+          branch: main
+  build-apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
