@@ -43,6 +43,7 @@ android {
 
 dependencies {
     implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.preference:preference-ktx:1.2.1")
     compileOnly("de.robv.android.xposed:api:82")
     compileOnly("de.robv.android.xposed:api:82:sources")
     implementation("org.luckypray:dexkit:2.0.2")
