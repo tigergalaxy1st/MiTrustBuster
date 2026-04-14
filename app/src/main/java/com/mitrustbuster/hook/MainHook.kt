@@ -81,7 +81,7 @@ class MainHook : IXposedHookLoadPackage {
                         .matcher(
                             MethodMatcher.create()
                                 .usingStrings("MiTrustService/statusEventHandle", "try init mrmd Service")
-                                .returnType(boolean::class.java)
+                                .returnType(Boolean::class.java)
                         )
                 )
 
