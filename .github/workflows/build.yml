@@ -68,9 +68,11 @@ jobs:
             curl -fsSL -o "/tmp/xposed_src/$local" "$url"
           done
           
-          echo "Downloaded all files. Compiling with bootclasspath..."
-          javac -bootclasspath "$ANDROID_HOME/platforms/android-34/android.jar" \
+          echo "Downloaded all files. Compiling with classpath..."
+          # 使用 -classpath 代替 -bootclasspath，Java 17 支持
+          javac -classpath "$ANDROID_HOME/platforms/android-34/android.jar" \
                 -d /tmp/xposed_jar \
+                -source 1.8 -target 1.8 \
                 -encoding UTF-8 \
                 $(find /tmp/xposed_src -name "*.java") 2>&1 && echo "Compilation SUCCESS"
           find /tmp/xposed_jar -name "*.class" | wc -l
