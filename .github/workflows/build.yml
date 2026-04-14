@@ -46,7 +46,6 @@ jobs:
           mkdir -p /tmp/src/de/robv/android/xposed/services
           mkdir -p /tmp/src/android/app
           mkdir -p /tmp/src/android/content/res
-          mkdir -p /tmp/src/external/org/apache/commons/lang3/reflect
           
           # de.robv.android.xposed package
           for f in IXposedHookCmdInit IXposedHookInitPackageResources IXposedHookLoadPackage IXposedHookZygoteInit IXposedMod SELinuxHelper XC_MethodHook XC_MethodReplacement XSharedPreferences XposedBridge XposedHelpers package-info; do
@@ -66,17 +65,8 @@ jobs:
             curl -fsSL -o "/tmp/src/android/content/res/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/android/content/res/$f.java"
           done
           
-          # Apache Commons Lang3 (external package)
-          for f in ArrayUtils CharSequenceUtils CharUtils ClassUtils JavaVersion ObjectUtils StringUtils SystemUtils Validate package; do
-            ext="java"
-            [ "$f" = "package" ] && ext="html"
-            curl -fsSL -o "/tmp/src/external/org/apache/commons/lang3/$f.$ext" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/apacheCommonsLang/external/org/apache/commons/lang3/$f.$ext"
-          done
-          for f in MemberUtils MethodUtils package; do
-            ext="java"
-            [ "$f" = "package" ] && ext="html"
-            curl -fsSL -o "/tmp/src/external/org/apache/commons/lang3/reflect/$f.$ext" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/apacheCommonsLang/external/org/apache/commons/lang3/reflect/$f.$ext"
-          done
+          # Apache Commons Lang3 - clone from repo and copy
+          cp -r /tmp/XB/app/src/main/apacheCommonsLang/external /tmp/src/
           
           echo "Downloaded: $(find /tmp/src -name "*.java" | wc -l) Java files"
       - name: Compile all source files
