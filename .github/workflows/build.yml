@@ -9,7 +9,6 @@ on:
 
 env:
   ANDROID_HOME: /usr/local/lib/android/sdk
-  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
 jobs:
   build-xposed-api:
@@ -30,12 +29,9 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/rovo89/XposedBridge.git /tmp/XB
           cd /tmp/XB
-          # 配置 Gradle wrapper
           curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
           printf 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\n' > gradle/wrapper/gradle-wrapper.properties
-          # 简化 build.gradle
           printf 'buildscript { repositories { google(); mavenCentral() }; dependencies { classpath "com.android.tools.build:gradle:8.2.0" } }\nallprojects { repositories { google(); mavenCentral() } }\n' > build.gradle
-          # 配置 hiddenapistubs
           printf 'apply plugin: "com.android.library"\nandroid { namespace "de.robv.android.xposed.hiddenapistubs"; compileSdk 34; compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 } }\n' > hiddenapistubs/build.gradle
           echo 'include ":hiddenapistubs"' > settings.gradle
           export ANDROID_HOME=/usr/local/lib/android/sdk
@@ -44,32 +40,44 @@ jobs:
           unzip -o "$AAR" classes.jar -d /tmp/
           mv /tmp/classes.jar /tmp/hiddenapistubs.jar
           ls -lh /tmp/hiddenapistubs.jar
-      - name: Download and compile XposedBridge API
+      - name: Download all XposedBridge API source files
         run: |
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          mkdir -p /tmp/xposed_src/de/robv/android/xposed/callbacks
-          mkdir -p /tmp/xposed_src/de/robv/android/xposed/services
+          # de.robv.android.xposed package
+          mkdir -p /tmp/src/de/robv/android/xposed/callbacks
+          mkdir -p /tmp/src/de/robv/android/xposed/services
+          mkdir -p /tmp/src/android/app
+          mkdir -p /tmp/src/android/content/res
           
-          # 下载 XposedBridge API 源文件
-          for f in IXposedHookCmdInit IXposedHookInitPackageResources IXposedHookLoadPackage IXposedHookZygoteInit IXposedMod SELinuxHelper XC_MethodHook XC_MethodReplacement XSharedPreferences XposedBridge XposedHelpers; do
-            curl -fsSL -o "/tmp/xposed_src/de/robv/android/xposed/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/$f.java"
+          for f in IXposedHookCmdInit IXposedHookInitPackageResources IXposedHookLoadPackage IXposedHookZygoteInit IXposedMod SELinuxHelper XC_MethodHook XC_MethodReplacement XSharedPreferences XposedBridge XposedHelpers package-info; do
+            curl -fsSL -o "/tmp/src/de/robv/android/xposed/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/$f.java"
           done
           for f in IXUnhook XC_InitPackageResources XC_LayoutInflated XC_LoadPackage XCallback package-info; do
-            curl -fsSL -o "/tmp/xposed_src/de/robv/android/xposed/callbacks/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/callbacks/$f.java"
+            curl -fsSL -o "/tmp/src/de/robv/android/xposed/callbacks/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/callbacks/$f.java"
           done
           for f in BaseService BinderService DirectAccessService FileResult ZygoteService package-info; do
-            curl -fsSL -o "/tmp/xposed_src/de/robv/android/xposed/services/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/services/$f.java"
+            curl -fsSL -o "/tmp/src/de/robv/android/xposed/services/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/services/$f.java"
           done
-          curl -fsSL -o "/tmp/xposed_src/de/robv/android/xposed/package-info.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/de/robv/android/xposed/package-info.java"
           
-          echo "Compiling..."
-          # 使用 hiddenapistubs.jar 和 android.jar 作为 classpath
+          # android package (Xposed extensions)
+          curl -fsSL -o "/tmp/src/android/app/AndroidAppHelper.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/android/app/AndroidAppHelper.java"
+          curl -fsSL -o "/tmp/src/android/app/package-info.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/android/app/package-info.java"
+          for f in MiuiResources XModuleResources XResForwarder XResources package-info; do
+            curl -fsSL -o "/tmp/src/android/content/res/$f.java" "https://raw.githubusercontent.com/rovo89/XposedBridge/v82/app/src/main/java/android/content/res/$f.java"
+          done
+          
+          echo "Downloaded all files:"
+          find /tmp/src -name "*.java" | wc -l
+      - name: Compile all source files
+        run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          mkdir -p /tmp/xposed_jar
           javac -classpath "/tmp/hiddenapistubs.jar:$ANDROID_HOME/platforms/android-34/android.jar" \
                 -d /tmp/xposed_jar \
                 -source 1.8 -target 1.8 \
                 -encoding UTF-8 \
-                $(find /tmp/xposed_src -name "*.java") 2>&1 && echo "SUCCESS" || echo "Compilation errors"
-          find /tmp/xposed_jar -name "*.class" 2>/dev/null | wc -l
+                $(find /tmp/src -name "*.java") 2>&1 | head -50
+          echo "---"
+          find /tmp/xposed_jar -name "*.class" | wc -l
       - name: Package JAR
         run: |
           cd /tmp/xposed_jar
