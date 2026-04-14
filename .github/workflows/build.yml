@@ -30,12 +30,30 @@ jobs:
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB && cd XB && mv app app_disabled && curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar" && printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties && printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n' > build.gradle && printf 'apply plugin: "com.android.library"\n\nandroid {\n    namespace "de.robv.android.xposed.hiddenapistubs"\n    compileSdk 34\n    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }\n}\n' > hiddenapistubs/build.gradle && ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q && echo "Build SUCCESS" && AAR=$(find hiddenapistubs/build -name "*.aar" | head -1) && mkdir -p ../xposed-api && mkdir -p ../xposed-api/de/robv/android/xposed/api/82 && unzip -o "$AAR" classes.jar -d /tmp/xposed && cp /tmp/xposed/classes.jar ../xposed-api/de/robv/android/xposed/api/82/api-82.jar && printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ../xposed-api/de/robv/android/xposed/api/82/api-82.pom && cd .. && ls -lh xposed-api/de/robv/android/xposed/api/82/
-      - name: Upload Xposed API JAR
+          git clone --depth 1 https://github.com/rovo89/XposedBridge.git /tmp/XB
+          cd /tmp/XB
+          mv app app_disabled
+          curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar"
+          printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties
+          printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n' > build.gradle
+          printf 'apply plugin: "com.android.library"\n\nandroid {\n    namespace "de.robv.android.xposed.hiddenapistubs"\n    compileSdk 34\n    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }\n}\n' > hiddenapistubs/build.gradle
+          ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q && echo "Build SUCCESS"
+          AAR="$(find hiddenapistubs/build -name "*.aar" | head -1)"
+          unzip -o "$AAR" classes.jar -d /tmp/xposed_extract
+          mkdir -p /tmp/xposed_jar
+          cp /tmp/xposed_extract/classes.jar /tmp/xposed_jar/api-82.jar
+          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > /tmp/xposed_jar/api-82.pom
+          cp /tmp/xposed_jar/api-82.jar /home/runner/work/MiTrustBuster/MiTrustBuster/api-82.jar
+          cp /tmp/xposed_jar/api-82.pom /home/runner/work/MiTrustBuster/MiTrustBuster/api-82.pom
+          ls -lh /tmp/xposed_jar/
+          echo "Files ready for upload"
+      - name: Upload Xposed API files
         uses: actions/upload-artifact@v4
         with:
           name: xposed-api
-          path: xposed-api/
+          path: |
+            api-82.jar
+            api-82.pom
           retention-days: 1
 
   build-apk:
@@ -53,15 +71,11 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" --sdk_root="$ANDROID_HOME"
-      - name: Download Xposed API JAR
-        uses: actions/download-artifact@v4
-        with:
-          name: xposed-api
-      - name: Install XposedBridge API to mavenLocal
+      - name: Download and install XposedBridge API
         run: |
           mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
-          cp xposed-api/de/robv/android/xposed/api/82/api-82.jar ~/.m2/repository/de/robv/android/xposed/api/82/
-          cp xposed-api/de/robv/android/xposed/api/82/api-82.pom ~/.m2/repository/de/robv/android/xposed/api/82/
+          cp api-82.jar ~/.m2/repository/de/robv/android/xposed/api/82/
+          cp api-82.pom ~/.m2/repository/de/robv/android/xposed/api/82/
           ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Fix gradlew permissions
         run: chmod +x gradlew
