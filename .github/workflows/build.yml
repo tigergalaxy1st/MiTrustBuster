@@ -32,16 +32,20 @@ jobs:
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" --sdk_root="$ANDROID_HOME"
           echo "=== Verify ==="
           ls "$ANDROID_HOME/platforms/android-34/android.jar"
-      - name: Build XposedBridge hiddenapistubs
+      - name: Build XposedBridge API JAR from pure Java sources
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB && cd XB && mv app app_disabled && curl -fsSL -o gradle/wrapper/gradle-wrapper.jar "https://raw.githubusercontent.com/tigergalaxy1st/MiTrustBuster/main/gradle/wrapper/gradle-wrapper.jar" && printf 'distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\ndistributionUrl=https\\://services.gradle.org/distributions/gradle-8.5-bin.zip\nnetworkTimeout=10000\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\n' > gradle/wrapper/gradle-wrapper.properties && printf 'buildscript {\n    repositories {\n        google()\n        mavenCentral()\n    }\n    dependencies {\n        classpath "com.android.tools.build:gradle:8.1.0"\n    }\n}\nallprojects {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\n' > build.gradle && printf 'apply plugin: "com.android.library"\n\nandroid {\n    namespace "de.robv.android.xposed.hiddenapistubs"\n    compileSdk 34\n    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }\n}\n' > hiddenapistubs/build.gradle && ./gradlew :hiddenapistubs:assembleRelease --no-daemon -q && echo "Build SUCCESS"
-      - name: Install XposedBridge API to mavenLocal
-        run: |
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          cd XB && AAR=$(find hiddenapistubs/build -name "*.aar" | head -1) && echo "AAR: $AAR" && mkdir -p /tmp/xposed && unzip -o "$AAR" classes.jar -d /tmp/xposed && mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82 && cp /tmp/xposed/classes.jar ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar && printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom && echo "=== Build sources JAR ===" && mkdir -p /tmp/xsources && cd app_disabled/src/main/java && find . -name "*.java" -printf "cp %p /tmp/xsources/\n" | sh && cd /tmp/xsources && jar cf ~/.m2/repository/de/robv/android/xposed/api/82/api-82-sources.jar . && echo "Sources JAR built" && ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
+          git clone --depth 1 https://github.com/rovo89/XposedBridge.git XB && cd XB && mv app app_disabled
+          mkdir -p api-jar
+          cp -r app_disabled/src/main/java/* api-jar/
+          find api-jar -name "*.java" > sources.txt
+          javac -d api-jar -cp api-jar @sources.txt && echo "javac SUCCESS"
+          cd api-jar && mkdir -p ~/.m2/repository/de/robv/android/xposed/api/82
+          jar cf ~/.m2/repository/de/robv/android/xposed/api/82/api-82.jar de/robv/android/xposed/
+          printf '<?xml version="1.0" encoding="UTF-8"?><project><modelVersion>4.0.0</modelVersion><groupId>de.robv.android.xposed</groupId><artifactId>api</artifactId><version>82</version><packaging>jar</packaging></project>' > ~/.m2/repository/de/robv/android/xposed/api/82/api-82.pom
+          jar cf ~/.m2/repository/de/robv/android/xposed/api/82/api-82-sources.jar de/robv/android/xposed/
+          ls -lh ~/.m2/repository/de/robv/android/xposed/api/82/
       - name: Fix gradlew permissions
         run: chmod +x gradlew
       - name: Build Debug APK
