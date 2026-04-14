@@ -20,19 +20,17 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Install Android SDK
+      - name: Install Android SDK components
         run: |
           export ANDROID_HOME=/usr/local/lib/android/sdk
-          mkdir -p "$ANDROID_HOME"
-          cd "$ANDROID_HOME"
-          curl -fsSL -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-          unzip -q cmdline-tools.zip
-          mkdir -p cmdline-tools/latest
-          [ -d "cmdline-tools/bin" ] && mv cmdline-tools/bin cmdline-tools/latest/
-          [ -d "cmdline-tools/lib" ] && mv cmdline-tools/lib cmdline-tools/latest/
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          echo "=== SDK directory ==="
+          ls "$ANDROID_HOME/"
+          echo "=== Accept licenses ==="
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          echo "=== Install SDK packages ==="
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-34" "build-tools;34.0.0" --sdk_root="$ANDROID_HOME"
+          echo "=== Verify ==="
           ls "$ANDROID_HOME/platforms/android-34/android.jar"
       - name: Build XposedBridge hiddenapistubs
         run: |
